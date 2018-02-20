@@ -51,15 +51,15 @@ let _ =
    Takes a state and an expression, and returns the value of the expression in 
    the given state.
 *)
-let rec eval state expr =
+let rec eval state expr = match expr with
   | Const n -> n
   | Var x -> state x
   | Binop (op, x, y) ->
     let
       left = eval state x
       and right = eval state y
-      and int2bin value = if value = 0 then false else true
-      and bin2int value = if value then 1 else 0
+      and int2bool value = if value = 0 then false else true
+      and bool2int value = if value then 1 else 0
     in
       match op with
         | "+" -> left + right
@@ -67,14 +67,14 @@ let rec eval state expr =
         | "*" -> left * right
         | "/" -> left / right
         | "%" -> left mod right
-        | ">" -> bin2int (left > right)
-        | "<" -> bin2int (left < right)
-        | ">=" -> bin2int (left >= right)
-        | "<=" -> bin2int (left <= right)
-        | "==" -> bin2int (left = right)
-        | "!=" -> bin2int (left <> right)
-        | "!!" -> bin2int (int2bin l || int2bin r)
-        | "&&" -> bin2int (int2bin l && int2bin r)
+        | ">" -> bool2int (left > right)
+        | "<" -> bool2int (left < right)
+        | ">=" -> bool2int (left >= right)
+        | "<=" -> bool2int (left <= right)
+        | "==" -> bool2int (left = right)
+        | "!=" -> bool2int (left <> right)
+        | "!!" -> bool2int ((int2bool left) || (int2bool right))
+        | "&&" -> bool2int ((int2bool left) && (int2bool right))
         | _ -> failwith (Printf.sprintf "Undefined operator %s" op)
 ;;
                     
