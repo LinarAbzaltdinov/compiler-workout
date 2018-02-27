@@ -41,8 +41,32 @@ module Expr =
        Takes a state and an expression, and returns the value of the expression in 
        the given state.
     *)
-    let eval _ = failwith "Not implemented yet"
 
+    let rec eval state expr = match expr with
+      | Const n -> n
+      | Var x -> state x
+      | Binop (op, x, y) ->
+        let
+          left = eval state x
+          and right = eval state y
+          and int2bool value = if value = 0 then false else true
+          and bool2int value = if value then 1 else 0
+        in
+          match op with
+            | "+" -> left + right
+            | "-" -> left - right
+            | "*" -> left * right
+            | "/" -> left / right
+            | "%" -> left mod right
+            | ">" -> bool2int (left > right)
+            | "<" -> bool2int (left < right)
+            | ">=" -> bool2int (left >= right)
+            | "<=" -> bool2int (left <= right)
+            | "==" -> bool2int (left = right)
+            | "!=" -> bool2int (left <> right)
+            | "!!" -> bool2int ((int2bool left) || (int2bool right))
+            | "&&" -> bool2int ((int2bool left) && (int2bool right))
+            | _ -> failwith (Printf.sprintf "Undefined operator %s" op)
   end
                     
 (* Simple statements: syntax and sematics *)
@@ -65,8 +89,12 @@ module Stmt =
 
        Takes a configuration and a statement, and returns another configuration
     *)
-    let eval _ = failwith "Not implemented yet"
-                                                         
+    let rec eval config stmt = match config, stmt with
+      | (st, z::inp, out), Read x -> (Expr.update x z st), inp, out
+      | (st, inp, out), Write e -> st, inp, out @ [Expr.eval st e]
+      | (st, inp, out), Assign (x, e) -> (Expr.update x (Expr.eval st e) st), inp, out
+      | config, Seq (s1, s2) -> eval (eval config s1) s2
+      | _, Read _ -> failwith "Empty input stream read"
   end
 
 (* The top-level definitions *)

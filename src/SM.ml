@@ -17,13 +17,25 @@ type prg = insn list
  *)
 type config = int list * Syntax.Stmt.config
 
+let evalInstruction config instr = match config, instr with
+  | (y::x::stack, config), BINOP op -> (Expr.eval op x y)::stack, config)
+  | (stack, config), CONST z -> (z::stack, config)
+  | (stack, (state, z::inp, out)), READ -> (z::stack, (state, inp, out))
+  | (z::stack, (state, inp, out)), WRITE -> (stack, (state, inp, out @ z))
+  | (stack, (state, inp, out)), LD x -> ((state x)::stack, (state, inp, out))
+  | (z::stack, (state, inp, out)), ST x -> (stack, ((Expr.update x z state), inp, out)
+
+
 (* Stack machine interpreter
 
      val eval : config -> prg -> config
 
    Takes a configuration and a program, and returns a configuration as a result
- *)                         
-let eval _ = failwith "Not yet implemented"
+ *)       
+
+let rec eval config prog = match config, prog with
+  | config, instr::prog -> eval (evalInstruction c instr) prog
+  | config, [] -> c               
 
 (* Top-level evaluation
 
@@ -41,4 +53,8 @@ let run i p = let (_, (_, _, o)) = eval ([], (Syntax.Expr.empty, i, [])) p in o
    stack machine
  *)
 
-let compile _ = failwith "Not yet implemented"
+let rec compile = function
+  | Stmt.Read x -> [READ; ST x]
+  | Stmt.Write e -> compile_expr e @ [WRITE]
+  | Stmt.Assign (x, e) -> compile_expr e @ [ST x]
+  | Stmt.Seq (s1, s2) -> compile s1 @ compile s2
