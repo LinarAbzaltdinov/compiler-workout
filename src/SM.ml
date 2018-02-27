@@ -53,6 +53,11 @@ let run i p = let (_, (_, _, o)) = eval ([], (Syntax.Expr.empty, i, [])) p in o
    stack machine
  *)
 
+let rec compile_expr = function
+  | Expr.Const num -> [CONST num]
+  | Expr.Var var -> [LD var]
+  | Expr.Binop (op, e1, e2) -> compile_expr e1 @ compile_expr e2 @ [BINOP op]
+
 let rec compile = function
   | Stmt.Read x -> [READ; ST x]
   | Stmt.Write e -> compile_expr e @ [WRITE]
