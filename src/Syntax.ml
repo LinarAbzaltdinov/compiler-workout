@@ -41,6 +41,26 @@ module Expr =
        Takes a state and an expression, and returns the value of the expression in 
        the given state.
     *)
+    let binop op left right = 
+      let 
+        int2bool value = if value = 0 then false else true
+        and bool2int value = if value then 1 else 0
+      in
+        match op with
+          | "+" -> left + right
+          | "-" -> left - right
+          | "*" -> left * right
+          | "/" -> left / right
+          | "%" -> left mod right
+          | ">" -> bool2int (left > right)
+          | "<" -> bool2int (left < right)
+          | ">=" -> bool2int (left >= right)
+          | "<=" -> bool2int (left <= right)
+          | "==" -> bool2int (left = right)
+          | "!=" -> bool2int (left <> right)
+          | "!!" -> bool2int ((int2bool left) || (int2bool right))
+          | "&&" -> bool2int ((int2bool left) && (int2bool right))
+          | _ -> failwith (Printf.sprintf "Undefined operator %s" op)
 
     let rec eval state expr = match expr with
       | Const n -> n
@@ -49,24 +69,8 @@ module Expr =
         let
           left = eval state x
           and right = eval state y
-          and int2bool value = if value = 0 then false else true
-          and bool2int value = if value then 1 else 0
         in
-          match op with
-            | "+" -> left + right
-            | "-" -> left - right
-            | "*" -> left * right
-            | "/" -> left / right
-            | "%" -> left mod right
-            | ">" -> bool2int (left > right)
-            | "<" -> bool2int (left < right)
-            | ">=" -> bool2int (left >= right)
-            | "<=" -> bool2int (left <= right)
-            | "==" -> bool2int (left = right)
-            | "!=" -> bool2int (left <> right)
-            | "!!" -> bool2int ((int2bool left) || (int2bool right))
-            | "&&" -> bool2int ((int2bool left) && (int2bool right))
-            | _ -> failwith (Printf.sprintf "Undefined operator %s" op)
+          binop op left right
   end
                     
 (* Simple statements: syntax and sematics *)

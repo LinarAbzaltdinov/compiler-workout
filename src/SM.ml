@@ -18,12 +18,12 @@ type prg = insn list
 type config = int list * Syntax.Stmt.config
 
 let evalInstruction config instr = match config, instr with
-  | (y::x::stack, config), BINOP op -> (Expr.eval op x y)::stack, config)
+  | (y::x::stack, config), BINOP op -> ((Syntax.Expr.binop op x y)::stack, config)
   | (stack, config), CONST z -> (z::stack, config)
   | (stack, (state, z::inp, out)), READ -> (z::stack, (state, inp, out))
-  | (z::stack, (state, inp, out)), WRITE -> (stack, (state, inp, out @ z))
-  | (stack, (state, inp, out)), LD x -> ((state x)::stack, (state, inp, out))
-  | (z::stack, (state, inp, out)), ST x -> (stack, ((Expr.update x z state), inp, out)
+  | (z::stack, (state, inp, out)), WRITE -> (stack, (state, inp, out @ [z]))
+  | (stack, (state, inp, out)), LD x -> (state x)::stack, (state, inp, out)
+  | (z::stack, (state, inp, out)), ST x -> (stack, ((Syntax.Expr.update x z state), inp, out))
 
 
 (* Stack machine interpreter
@@ -34,8 +34,8 @@ let evalInstruction config instr = match config, instr with
  *)       
 
 let rec eval config prog = match config, prog with
-  | config, instr::prog -> eval (evalInstruction c instr) prog
-  | config, [] -> c               
+  | config, instr::prog -> eval (evalInstruction config instr) prog
+  | config, [] -> config               
 
 (* Top-level evaluation
 
@@ -43,8 +43,8 @@ let rec eval config prog = match config, prog with
 
    Takes an input stream, a program, and returns an output stream this program calculates
 *)
-let run i p = let (_, (_, _, o)) = eval ([], (Syntax.Expr.empty, i, [])) p in o
-
+(*let run i p = let (_, (_, _, o) = eval ([], (Syntax.Expr.empty, i, []) p in o
+*)
 (* Stack machine compiler
 
      val compile : Syntax.Stmt.t -> prg
@@ -54,12 +54,12 @@ let run i p = let (_, (_, _, o)) = eval ([], (Syntax.Expr.empty, i, [])) p in o
  *)
 
 let rec compile_expr = function
-  | Expr.Const num -> [CONST num]
-  | Expr.Var var -> [LD var]
-  | Expr.Binop (op, e1, e2) -> compile_expr e1 @ compile_expr e2 @ [BINOP op]
+  | Syntax.Expr.Const num -> [CONST num]
+  | Syntax.Expr.Var var -> [LD var]
+  | Syntax.Expr.Binop (op, e1, e2) -> compile_expr e1 @ compile_expr e2 @ [BINOP op]
 
 let rec compile = function
-  | Stmt.Read x -> [READ; ST x]
-  | Stmt.Write e -> compile_expr e @ [WRITE]
-  | Stmt.Assign (x, e) -> compile_expr e @ [ST x]
-  | Stmt.Seq (s1, s2) -> compile s1 @ compile s2
+  | Syntax.Stmt.Read x -> [READ; ST x]
+  | Syntax.Stmt.Write e -> compile_expr e @ [WRITE]
+  | Syntax.Stmt.Assign (x, e) -> compile_expr e @ [ST x]
+  | Syntax.Stmt.Seq (s1, s2) -> compile s1 @ compile s2
