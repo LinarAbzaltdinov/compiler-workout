@@ -82,11 +82,36 @@ module Expr =
    
     *)
     ostap (
-      parse: empty {failwith "Not implemented yet"}
+      primary: x:IDENT {Var x} | x:DECIMAL {Const x} | -"(" parse -")";
+      parse: !(Ostap.Util.expr
+        (fun x -> x)
+        [|
+          `Lefta  , [ostap ("!!"), (fun l r -> Binop("!!", l, r))];
+          `Lefta  , [ostap ("&&"), (fun l r -> Binop("&&", l, r))];
+          `Nona   , [
+ 			ostap ("<="), (fun l r -> Binop("<=", l, r));
+ 			ostap ("<"),  (fun l r -> Binop("<", l, r));
+ 			ostap (">="), (fun l r -> Binop(">=", l, r));
+ 			ostap (">"),  (fun l r -> Binop(">", l, r));
+ 			ostap ("=="), (fun l r -> Binop("==", l, r));
+ 			ostap ("!="), (fun l r -> Binop("!=", l, r))
+          ];
+          `Lefta  , [
+            ostap ("+"), (fun l r -> Binop("+", l, r));
+            ostap ("-"), (fun l r -> Binop("-", l, r))
+          ];
+          `Lefta  , [
+ 			ostap ("*"), (fun l r -> Binop("*", l, r));
+ 			ostap ("/"), (fun l r -> Binop("/", l, r));
+ 			ostap ("%"), (fun l r -> Binop("%", l, r))
+          ]
+        |]
+        primary
+      )
     )
     end
                     
-(* Simple statements: syntax and sematics *)
+(* Simple statements: syntax and semantics *)
 module Stmt =
   struct
 
@@ -115,7 +140,12 @@ module Stmt =
 
     (* Statement parser *)
     ostap (
-      parse: empty {failwith "Not implemented yet"}
+      parse: seq | stmt;
+      stmt:
+        -"read" -"(" s: IDENT -")" {Read s}
+        | -"write" -"(" e: !(Expr.parse) -")" {Write e}
+        | s: IDENT -":=" e: !(Expr.parse) { Assign (s, e) };
+      seq: left:stmt -";" right:parse { Seq (left, right) }
     )
     end
 
