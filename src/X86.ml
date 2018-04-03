@@ -100,7 +100,30 @@ let rec compile env code = match code with
     | READ -> 
       let s, env = env#allocate in 
       env, [Call "Lread"; Mov (eax, s)]
-
+    | BINOP op -> 
+      let r, l, e = env#pop2 in let ret, e' = e#allocate in
+      match op with
+        | "+" | "-" | "*" -> 
+          e', [Mov (l, eax); Binop (op, r, eax); Mov (eax, l)]
+        | "/" -> 
+          e', [Mov (l, eax); Cltd; IDiv r; Mov (eax, ret)]
+        | "%" -> 
+          e', [Mov (l, eax); Cltd; IDiv r; Mov (edx, ret)]
+        | "&&" | "!!" -> 
+          e', [Binop ("^", eax, eax); Binop ("^", edx, edx);
+                        Binop ("cmp", L 0, l); Set ("nz", "%al"); 
+                        Binop ("cmp", L 0, r); Set ("nz", "%dl"); 
+                        Binop (op, eax, edx); Mov (edx, ret)]
+        | ">" | ">=" | "<" | "<=" | "==" | "!=" -> 
+          let asm_op = match op with
+          | "<" -> "l"
+          | ">" -> "g"
+          | "<=" -> "le"
+          | ">=" -> "ge"
+          | "!=" -> "ne"
+          | "==" -> "e"
+          in e', [Mov (l, eax); Binop ("cmp", r, eax); Mov (eax, l)] @ [Mov (L 0, eax); Set (asm_op, "%al");  Mov (eax, ret)]
+        
     | _ -> failwith "Not yet supported"
   in
   let env, oldasm = compile env nextCode in
