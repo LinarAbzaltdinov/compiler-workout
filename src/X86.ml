@@ -91,6 +91,16 @@ let rec compile env code = match code with
     | WRITE ->
       let s, env = env#pop in
       env, [Push s; Call "Lwrite"; Pop eax]
+    | LD x ->
+      let s, env = (env#global x)#allocate in
+      env, [Mov (M x, s)]
+    | ST x ->
+      let s, env = (env#global x)#pop in
+      env, [Mov (s, M x)]
+    | READ -> 
+      let s, env = env#allocate in 
+      env, [Call "Lread"; Mov (eax, s)]
+
     | _ -> failwith "Not yet supported"
   in
   let env, oldasm = compile env nextCode in
