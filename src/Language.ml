@@ -68,18 +68,13 @@ module Expr =
     let rec eval state expr = match expr with
       | Const n -> n
       | Var x -> state x
-      | Binop (op, x, y) ->
-        let
-          left = eval state x
-          and right = eval state y
-        in
-          binop op left right
+      | Binop (op, x, y) -> binop op (eval state x) (eval state y)
 
     (* Expression parser. You can use the following terminals:
 
          IDENT   --- a non-empty identifier a-zA-Z[a-zA-Z0-9_]* as a string
          DECIMAL --- a decimal constant [0-9]+ as a string
-   
+                                                                                                                  
     *)
     ostap (
       primary: x:IDENT {Var x} | x:DECIMAL {Const x} | -"(" parse -")";
@@ -127,16 +122,17 @@ module Stmt =
 
     (* Statement evaluator
 
-          val eval : config -> t -> config
+         val eval : config -> t -> config
 
        Takes a configuration and a statement, and returns another configuration
     *)
-    let rec eval config stmt = match config, stmt with
-      | (st, z::inp, out), Read x -> (Expr.update x z st), inp, out
-      | (st, inp, out), Write e -> st, inp, out @ [Expr.eval st e]
-      | (st, inp, out), Assign (x, e) -> (Expr.update x (Expr.eval st e) st), inp, out
-      | config, Seq (s1, s2) -> eval (eval config s1) s2
-      | _, Read _ -> failwith "Empty input stream read"
+
+    let rec eval ((st, i, o) as conf) stmt =
+      match stmt with
+      | Read    x       -> (match i with z::i' -> (Expr.update x z st, i', o) | _ -> failwith "Unexpected end of input")
+      | Write   e       -> (st, i, o @ [Expr.eval st e])
+      | Assign (x, e)   -> (Expr.update x (Expr.eval st e) st, i, o)
+      | Seq    (s1, s2) -> eval (eval conf s1) s2
 
     (* Statement parser *)
     ostap (
@@ -162,3 +158,6 @@ type t = Stmt.t
 *)
 let eval p i =
   let _, _, o = Stmt.eval (Expr.empty, i, []) p in o
+
+(* Top-level parser *)
+let parse = Stmt.parse                                                     
