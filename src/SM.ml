@@ -32,34 +32,35 @@ type config = (prg * State.t) list * int list * Expr.config
    Takes an environment, a configuration and a program, and returns a configuration as a result. The
    environment is used to locate a label to jump to (via method env#labeled <label_name>)
 *)
-let rec eval env ((cstack, stack, ((st, i, o) as c)) as conf) prg = function
+let rec eval env ((cstack, stack, ((st, i, o) as c)) as conf) = function
   | [] -> conf
   | insn :: prg' -> 
     match insn with
-      | JMP s       -> eval env conf (env#labeled s)
-        | CJMP (f, s) -> let x::stack' = stack in 
-                     let predicate = match f with
-                        | "z"  -> (==) 0
-                      | "nz" -> (!=) 0
-                     in
-                     if predicate x then eval env (cstack, stack', c) (env#labeled s) else eval env (cstack, stack', c) prg'
-            | CALL f      -> eval env ((prg', st)::cstack, stack, c) (env#labeled f)
-            | END         -> let (p, st')::cstack' = cstack in 
-                             eval env (cstack', stack, (State.leave st st', i, o)) p
+      | JMP s          -> eval env conf (env#labeled s)
+        | CJMP (f, s)    -> let x::stack' = stack in 
+                        let predicate = match f with
+                           | "z"  -> (==) 0
+                         | "nz" -> (!=) 0
+                        in
+                        if predicate x then eval env (cstack, stack', c) (env#labeled s) else eval env (cstack, stack', c) prg'
+            | CALL (f, _, _) -> eval env ((prg', st)::cstack, stack, c) (env#labeled f)
+            | END | RET _    -> (match cstack with
+                                    | (p, st')::cstack' -> eval env (cstack', stack, (State.leave st st', i, o)) p
+                                    | [] -> conf)
           | _ -> eval env
          (match insn with
-          | BINOP op     -> let y::x::stack' = stack in (cstack, Expr.to_func op x y :: stack', c)
-          | READ         -> let z::i'        = i     in (cstack, z::stack, (st, i', o))
-          | WRITE        -> let z::stack'    = stack in (cstack, stack', (st, i, o @ [z]))
-          | CONST i      -> (cstack, i::stack, c)
-          | LD x         -> (cstack, State.eval st x :: stack, c)
-          | ST x         -> let z::stack'    = stack in (cstack, stack', (State.update x z st, i, o))
-          | LABEL s      -> conf
-          | BEGIN (p, l) -> let enter_st = State.enter st (p @ l) in
-                            let (st', stack') = List.fold_right (
-                                fun p (st, x::stack') -> (State.update p x st, stack')  
-                                ) p (enter_st, stack) in
-                            (cstack, stack', (st', i, o))
+          | BINOP op        -> let y::x::stack' = stack in (cstack, Expr.to_func op x y :: stack', c)
+          | READ            -> let z::i'        = i     in (cstack, z::stack, (st, i', o))
+          | WRITE           -> let z::stack'    = stack in (cstack, stack', (st, i, o @ [z]))
+          | CONST i         -> (cstack, i::stack, c)
+          | LD x            -> (cstack, State.eval st x :: stack, c)
+          | ST x            -> let z::stack'    = stack in (cstack, stack', (State.update x z st, i, o))
+          | LABEL s         -> conf
+          | BEGIN (_, p, l) -> let enter_st = State.enter st (p @ l) in
+                               let (st', stack') = List.fold_right (
+                                   fun p (st, x::stack') -> (State.update p x st, stack')  
+                                   ) p (enter_st, stack) in
+                               (cstack, stack', (st', i, o))
          ) prg'
 
 (* Top-level evaluation
@@ -97,7 +98,7 @@ let rec compile' env p =
   | Expr.Var   x          -> [LD x]
   | Expr.Const n          -> [CONST n]
   | Expr.Binop (op, x, y) -> expr x @ expr y @ [BINOP op]
-  | Expr.Call (f, params) -> List.concat (List.map expr params) @ [CALL f]
+  | Expr.Call (f, params) -> List.concat (List.map expr params) @ [CALL (f, List.length params, false)]
   in
   match p with
   | Stmt.Seq (s1, s2)   -> compile' env s1 @ compile' env s2
@@ -116,11 +117,11 @@ let rec compile' env p =
                  compile' env s @ [JMP loopLabel; LABEL endLabel]
   | Stmt.Repeat (s, e)  -> let startLabel = env#next_label in
                  [LABEL startLabel] @ compile' env s @ expr e @ [CJMP ("z", startLabel)]
-  | Stmt.Call (f, p)    -> List.concat (List.map expr p) @ [CALL f]
-  | Stmt.Return r       -> (match r with | None -> [] | Some v -> expr v) @ [END]
+  | Stmt.Call (f, p)    -> List.concat (List.map expr p) @ [CALL (f, List.length p, true)]
+  | Stmt.Return r       -> (match r with | None -> [RET false] | Some v -> expr v @ [RET true])
 
 let compile_procedure env (name, (params, locals, body)) =
-    [LABEL name; BEGIN (params, locals)] @ compile' env body @ [END] 
+    [LABEL name; BEGIN (name, params, locals)] @ compile' env body @ [END] 
 
 (* Stack machine compiler
 
@@ -130,5 +131,4 @@ let compile_procedure env (name, (params, locals, body)) =
    stack machine
 *)
 let compile (defs, p) = let env = new env in
-    let end_label = env#next_label in
-    [JMP end_label] @ List.concat (List.map (compile_procedure env) defs) @ [LABEL end_label] @ compile' env p
+    compile' env p @ [END] @ List.concat (List.map (compile_procedure env) defs)
