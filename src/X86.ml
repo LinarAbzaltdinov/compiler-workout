@@ -83,6 +83,14 @@ let show instr =
 (* Opening stack machine to use instructions without fully qualified names *)
 open SM
 
+let init n ~f =
+  if n < 0 then raise (Invalid_argument "init");
+  let rec loop i accum =
+    if i = 0 then accum
+    else loop (i-1) (f (i-1) :: accum)
+  in
+  loop n []
+
 (* Symbolic stack machine evaluator
      compile : env -> prg -> env * instr list
    Take an environment, a stack machine program, and returns a pair --- the updated environment and the list
@@ -133,7 +141,7 @@ let rec compile env code =
     | CALL (f, param_count, is_proc) ->
         let push_symbolic = List.map (fun x -> Push x) env#live_registers in
         let pop_symbolic = List.map (fun x -> Pop x) @@ List.rev env#live_registers in
-        let env, params = List.fold_left (fun (env, list) _ -> let s, env = env#pop in env, s::list) (env, []) (List.init param_count (fun _ -> ())) in
+        let env, params = List.fold_left (fun (env, list) _ -> let s, env = env#pop in env, s::list) (env, []) (init param_count (fun _ -> ())) in
         let push_params = List.map (fun x -> Push x) params in
         let env, get_result = if is_proc then env, [] else (let s, env = env#allocate in env, [Mov (eax, s)]) in
         env, push_symbolic @ push_params @ [Call f; Binop ("-", L (param_count * word_size), esp)] @ pop_symbolic @ get_result
@@ -151,7 +159,8 @@ let rec compile env code =
 module S = Set.Make (String)
 
 (* Environment implementation *)
-let make_assoc l = List.combine l (List.init (List.length l) (fun x -> x))
+let make_assoc l = 
+  List.combine l (init (List.length l) (fun x -> x))
                      
 class env =
   object (self)
