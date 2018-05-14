@@ -32,7 +32,6 @@ type config = (prg * State.t) list * Value.t list * Expr.config
    Takes an environment, a configuration and a program, and returns a configuration as a result. The
    environment is used to locate a label to jump to (via method env#labeled <label_name>)
 *)
-<<<<<<< HEAD
 let split n l =
   let rec unzip (taken, rest) = function
   | 0 -> (List.rev taken, rest)
@@ -40,8 +39,6 @@ let split n l =
   in
   unzip ([], l) n
         
-let rec eval env ((cstack, stack, ((st, i, o) as c)) as conf) prg = failwith "Not implemented"
-=======
 let rec eval env ((cstack, stack, ((st, i, o) as c)) as conf) = function
   | [] -> conf
   | insn :: prg' -> 
@@ -72,7 +69,6 @@ let rec eval env ((cstack, stack, ((st, i, o) as c)) as conf) = function
                                    ) p (enter_st, stack) in
                                (cstack, stack', (st', i, o))
          ) prg'
->>>>>>> origin/hw8
 
 (* Top-level evaluation
 
@@ -114,9 +110,6 @@ let run p i =
    Takes a program in the source language and returns an equivalent program for the
    stack machine
 *)
-<<<<<<< HEAD
-let compile (defs, p) = failwith "Not implemented"
-=======
 class env =
   object (self)
     val mutable label = 0
@@ -163,4 +156,3 @@ let compile_procedure env (name, (params, locals, body)) =
 *)
 let compile (defs, p) = let env = new env in
     compile' env p @ [END] @ List.concat (List.map (compile_procedure env) defs)
->>>>>>> origin/hw8
