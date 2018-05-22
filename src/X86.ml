@@ -83,6 +83,22 @@ let show instr =
 (* Opening stack machine to use instructions without fully qualified names *)
 open SM
 
+let char_to_int ch = match ch with
+  | ch when ch <= 'Z' -> Char.code ch - 64
+  | '_' -> 53
+  | ch -> Char.code ch - 70
+
+let rec calc_int tag tag_len accum ind = 
+  if (idx >= tag_len) then
+    accum
+  else
+    calc_int tag tag_len ((accum lsl 6) lor char_to_int tag.[ind]) (ind + 1)  
+
+let calc_tag tag = 
+  let tag_len = String.length tag in
+  let sub_tag = String.sub tag 0 (if tag_len < 5 then tag_len else 5) in
+  compute_int sub_tag tag_len 0 0
+
 (* Symbolic stack machine evaluator
 
      compile : env -> prg -> env * instr list
@@ -145,7 +161,11 @@ let compile env code =
              let l, env = env#allocate in
              let env, call = call env ".string" 1 false in
              (env, Mov (M ("$" ^ s), l) :: call)
-             
+    
+    | SEXP (tag, ind) -> 
+              let env, code = call env ".sexp" (ind + 1) true in
+              env, [Push (L (calc_tag tag))] @ code
+
 	  | LD x ->
              let s, env' = (env#global x)#allocate in
              env',
